@@ -115,7 +115,7 @@ OIDC_CLIENT_ID = os.environ.get("OIDC_CLIENT_ID")
 
 if OIDC_CLIENT_ID:
     from flask_appbuilder.security.manager import AUTH_OAUTH
-    from flask_appbuilder.security.sqla.manager import SecurityManager
+    from superset.security import SupersetSecurityManager
 
     AUTH_TYPE = AUTH_OAUTH
 
@@ -149,7 +149,7 @@ if OIDC_CLIENT_ID:
         os.environ.get("OIDC_USER_GROUP", "superset_users"): ["Gamma"],
     }
 
-    class OIDCSecurityManager(SecurityManager):
+    class OIDCSecurityManager(SupersetSecurityManager):
         """Liest die Nutzerdaten aus dem OIDC-userinfo-Endpunkt."""
 
         def get_oauth_user_info(self, provider, response=None):

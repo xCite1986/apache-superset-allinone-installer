@@ -120,7 +120,7 @@ echo [3/6] Aktualisiere pip und installiere Superset (kann einige Minuten dauern
 "%PYEXE%" -m pip install --upgrade pip setuptools wheel
 if errorlevel 1 ( echo FEHLER bei pip-Upgrade. & pause & exit /b 1 )
 
-"%PYEXE%" -m pip install "apache-superset" waitress Pillow rich cachetools "flask-caching<2.2" oracledb
+"%PYEXE%" -m pip install "apache-superset" waitress Pillow rich cachetools "flask-caching<2.2" oracledb Authlib
 if errorlevel 1 (
     echo FEHLER bei der Installation von apache-superset.
     pause
