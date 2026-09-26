@@ -83,27 +83,33 @@ Log: `data\service.log`
 ## Oracle-Datenbank anbinden
 
 Der Treiber `python-oracledb` ist installiert (Thin Mode – **kein** Oracle Instant
-Client nötig).
+Client nötig). Er wird von der Config automatisch als `cx_Oracle` registriert,
+daher wird der Dialekt **`oracle+cx_oracle`** verwendet.
 
-In Superset: **Settings → Database Connections → + Database → SQLAlchemy URI**.
-Verbindungs-URI (SQLAlchemy-Dialekt `oracle+oracledb`):
+> **Wichtig:** Superset 6.x nutzt SQLAlchemy 1.4, das noch keinen eigenen
+> `oracle+oracledb`-Dialekt hat. Verwende deshalb `oracle+cx_oracle` (nicht
+> `oracle+oracledb`) – der moderne Treiber läuft trotzdem dahinter.
+
+In Superset: **Einstellungen → Datenbankverbindungen → + Datenbank → SQLAlchemy-URI**.
 
 ```
 # per Service-Name (empfohlen, z.B. Oracle XE / PDB)
-oracle+oracledb://BENUTZER:PASSWORT@HOST:1521/?service_name=XEPDB1
+oracle+cx_oracle://BENUTZER:PASSWORT@HOST:1521/?service_name=XEPDB1
 
 # per SID
-oracle+oracledb://BENUTZER:PASSWORT@HOST:1521/ORCL
+oracle+cx_oracle://BENUTZER:PASSWORT@HOST:1521/ORCL
 ```
 
-Beispiel lokal:
+Beispiel:
 ```
-oracle+oracledb://system:geheim@localhost:1521/?service_name=XEPDB1
+oracle+cx_oracle://system:geheim@localhost:1521/?service_name=XEPDB1
 ```
 
 Hinweise:
 - Nach dem Treiber-Nachinstallieren Superset **neu starten** (bzw. Dienst neu
   starten), damit Oracle in der Treiber-Liste erscheint.
+- Enthält das Passwort Sonderzeichen (`@ : / ?`), müssen diese URL-kodiert werden
+  (z. B. `@` → `%40`).
 - Sehr alte Oracle-Server (vor 12.1) benötigen den **Thick Mode** mit Oracle
   Instant Client. Dann in `superset_config.py` ergänzen:
   ```python

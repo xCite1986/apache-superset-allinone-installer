@@ -7,6 +7,27 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 SUPERSET_HOME = os.environ.get("SUPERSET_HOME", os.path.join(BASE_DIR, "data"))
 
 # ---------------------------------------------------------------------------
+# Oracle-Treiber: python-oracledb als cx_Oracle registrieren
+# ---------------------------------------------------------------------------
+# Superset 6.x nutzt SQLAlchemy 1.4, das noch KEINEN eigenen "oracledb"-Dialekt
+# hat (erst ab SQLAlchemy 2.0). python-oracledb ist aber API-kompatibel zu
+# cx_Oracle. Wir registrieren es daher als cx_Oracle, sodass der Dialekt
+# "oracle+cx_oracle" den modernen Treiber im Thin Mode verwendet
+# (kein Oracle Instant Client noetig).
+#
+# Verbindungs-URI in Superset dann:
+#   oracle+cx_oracle://USER:PASS@HOST:1521/?service_name=SERVICE
+try:
+    import sys as _sys
+    import oracledb as _oracledb
+
+    # Versionsangabe, die die cx_Oracle-Pruefung von SQLAlchemy 1.4 erfuellt.
+    _oracledb.version = "8.3.0"
+    _sys.modules["cx_Oracle"] = _oracledb
+except Exception:  # oracledb nicht installiert -> Oracle einfach nicht verfuegbar
+    pass
+
+# ---------------------------------------------------------------------------
 # Sicherheitsschluessel
 # Wird beim ersten Installationslauf zufaellig erzeugt und in secret_key.txt
 # gespeichert. NICHT weitergeben und NICHT aendern (sonst sind gespeicherte
