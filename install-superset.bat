@@ -64,53 +64,96 @@ echo      Standardsprache gesetzt: !LANGCODE!
 echo(
 
 REM ===========================================================================
-REM  1) Python 3.11 sicherstellen
+REM  1) Passendes Python finden (unterstuetzt: 3.12 / 3.11 / 3.10)
+REM     Hinweis: Superset 6.x hat fuer Python 3.13+ noch keine Wheels.
 REM ===========================================================================
-echo [1/6] Pruefe Python 3.11 ...
+echo [1/6] Suche unterstuetztes Python (3.12/3.11/3.10) ...
 set "BASEPY="
-set "BASEARG="
 
-py -3.11 --version >nul 2>&1 && ( set "BASEPY=py" & set "BASEARG=-3.11" )
+REM 1a) Ueber den py-Launcher den ECHTEN Interpreter-Pfad ermitteln
+for %%V in (3.12 3.11 3.10) do (
+    if not defined BASEPY (
+        for /f "delims=" %%P in ('py -%%V -c "import sys;print(sys.executable)" 2^>nul') do set "BASEPY=%%P"
+    )
+)
 
+REM 1b) Falls kein py-Launcher: uebliche Installationspfade absuchen
+for %%V in (312 311 310) do (
+    if not defined BASEPY if exist "%LocalAppData%\Programs\Python\Python%%V\python.exe" set "BASEPY=%LocalAppData%\Programs\Python\Python%%V\python.exe"
+    if not defined BASEPY if exist "%ProgramFiles%\Python%%V\python.exe" set "BASEPY=%ProgramFiles%\Python%%V\python.exe"
+    if not defined BASEPY if exist "C:\Python%%V\python.exe" set "BASEPY=C:\Python%%V\python.exe"
+)
+
+REM 1c) Nichts gefunden -> Python 3.11 via winget installieren
 if not defined BASEPY (
-    echo      Python 3.11 nicht gefunden - Installation via winget ...
+    echo      Kein unterstuetztes Python gefunden - installiere Python 3.11 via winget ...
     winget install -e --id Python.Python.3.11 --silent --accept-package-agreements --accept-source-agreements
     if errorlevel 1 (
         echo(
         echo FEHLER: Automatische Python-Installation fehlgeschlagen.
-        echo Bitte Python 3.11 manuell von https://www.python.org installieren
+        echo Bitte Python 3.11 oder 3.12 manuell von https://www.python.org installieren
         echo und dieses Skript erneut ausfuehren.
         pause
         exit /b 1
     )
-    py -3.11 --version >nul 2>&1 && ( set "BASEPY=py" & set "BASEARG=-3.11" )
-)
-
-if not defined BASEPY (
-    if exist "%LocalAppData%\Programs\Python\Python311\python.exe" (
-        set "BASEPY=%LocalAppData%\Programs\Python\Python311\python.exe"
-        set "BASEARG="
+    REM Nach der Installation erneut aufloesen
+    for %%V in (3.12 3.11 3.10) do (
+        if not defined BASEPY (
+            for /f "delims=" %%P in ('py -%%V -c "import sys;print(sys.executable)" 2^>nul') do set "BASEPY=%%P"
+        )
+    )
+    for %%V in (312 311 310) do (
+        if not defined BASEPY if exist "%LocalAppData%\Programs\Python\Python%%V\python.exe" set "BASEPY=%LocalAppData%\Programs\Python\Python%%V\python.exe"
+        if not defined BASEPY if exist "%ProgramFiles%\Python%%V\python.exe" set "BASEPY=%ProgramFiles%\Python%%V\python.exe"
     )
 )
 
 if not defined BASEPY (
-    echo FEHLER: Python 3.11 konnte nicht gefunden werden. Bitte Terminal neu
-    echo starten und Skript erneut ausfuehren.
+    echo FEHLER: Python konnte nicht gefunden werden. Bitte Terminal/Explorer neu
+    echo starten und dieses Skript erneut ausfuehren.
     pause
     exit /b 1
 )
-echo      Python OK.
+
+REM Basis-Python verifizieren
+"%BASEPY%" --version >nul 2>&1
+if errorlevel 1 (
+    echo FEHLER: Gefundenes Python ist nicht lauffaehig: "%BASEPY%"
+    pause
+    exit /b 1
+)
+echo      Verwende folgendes Python:
+"%BASEPY%" --version
+echo      Pfad: !BASEPY!
 
 REM ===========================================================================
-REM  2) Virtuelle Umgebung erstellen
+REM  2) Virtuelle Umgebung erstellen (mit echtem Interpreter-Pfad)
 REM ===========================================================================
 echo [2/6] Erstelle virtuelle Umgebung ...
-if not exist "%VENV_DIR%\Scripts\python.exe" (
-    "%BASEPY%" %BASEARG% -m venv "%VENV_DIR%"
-    if errorlevel 1 ( echo FEHLER beim Erstellen der venv. & pause & exit /b 1 )
-)
 set "PYEXE=%VENV_DIR%\Scripts\python.exe"
 set "SUPERSET_EXE=%VENV_DIR%\Scripts\superset.exe"
+
+REM Kaputte/halbe venv erkennen und neu aufbauen
+if exist "%VENV_DIR%\Scripts\python.exe" (
+    "%PYEXE%" --version >nul 2>&1 || (
+        echo      Vorhandene venv defekt - wird neu erstellt ...
+        rmdir /s /q "%VENV_DIR%"
+    )
+)
+
+if not exist "%VENV_DIR%\Scripts\python.exe" (
+    "%BASEPY%" -m venv "%VENV_DIR%"
+    if errorlevel 1 ( echo FEHLER beim Erstellen der venv. & pause & exit /b 1 )
+)
+
+REM venv-Python muss lauffaehig sein
+"%PYEXE%" --version >nul 2>&1
+if errorlevel 1 (
+    echo FEHLER: venv-Python nicht lauffaehig. Bitte Ordner "venv" loeschen und
+    echo Skript erneut ausfuehren.
+    pause
+    exit /b 1
+)
 echo      venv OK.
 
 REM ===========================================================================
