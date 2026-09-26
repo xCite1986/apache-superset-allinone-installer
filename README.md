@@ -111,6 +111,38 @@ Hinweise:
   oracledb.init_oracle_client(lib_dir=r"C:\pfad\zu\instantclient")
   ```
 
+## Single Sign-On (SSO) via OpenID Connect
+
+Superset kann sich per **OpenID Connect** an einen Identity Provider anbinden
+(Keycloak, Azure AD / Entra ID, Google, Okta, Authentik …). Die Anbindung ist
+generisch und wird über eine lokale `superset.env` konfiguriert.
+
+**Einrichtung:**
+
+1. `superset.env.example` nach `superset.env` kopieren.
+2. Beim Identity Provider einen **OIDC-Client** (Confidential/Web) anlegen und als
+   Redirect-/Callback-URL eintragen:
+   ```
+   http(s)://<host>:8088/oauth-authorized/oidc
+   ```
+3. In `superset.env` ausfüllen: `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET` und die
+   `OIDC_DISCOVERY_URL` (endet auf `/.well-known/openid-configuration`).
+4. Superset neu starten (bzw. Dienst neu starten).
+
+Sobald `OIDC_CLIENT_ID` gesetzt ist, erscheint auf der Login-Seite die
+SSO-Anmeldung. Ohne `superset.env` bleibt der normale Benutzer/Passwort-Login
+aktiv.
+
+**Rollen-Mapping (optional):** IdP-Gruppen/-Rollen lassen sich auf Superset-Rollen
+abbilden. Nutzer in der Gruppe `OIDC_ADMIN_GROUP` werden zu Admins, alle anderen
+erhalten `OIDC_DEFAULT_ROLE` (Standard: `Gamma`). Dafür muss der Provider einen
+`roles`- bzw. `groups`-Claim liefern (ggf. Scope `groups` in `OIDC_SCOPE`
+ergänzen).
+
+> **Wichtig:** `superset.env` enthält Secrets und ist per `.gitignore`
+> ausgeschlossen – niemals einchecken. Betrieb hinter HTTPS-Reverse-Proxy:
+> `ENABLE_PROXY_FIX = True` in `superset_config.py` aktivieren.
+
 ## Deinstallation
 
 1. `uninstall-service.bat` (als Administrator), falls Dienst eingerichtet

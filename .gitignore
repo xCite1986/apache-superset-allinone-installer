@@ -13,5 +13,8 @@ nssm.exe
 nssm.zip
 nssm_tmp/
 
+# SSO-/Umgebungs-Secrets (nur superset.env.example wird veroeffentlicht)
+superset.env
+
 # Sonstiges
 *.log

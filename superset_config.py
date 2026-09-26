@@ -91,3 +91,87 @@ BABEL_DEFAULT_FOLDER = "superset/translations"
 # Auswaehlbare Sprachen: gewaehlte Standardsprache + Englisch als Rueckfall.
 _enabled = {_default_lang, "en"}
 LANGUAGES = {code: _LANG_META[code] for code in _LANG_META if code in _enabled}
+
+# ---------------------------------------------------------------------------
+# Single Sign-On via OpenID Connect (OIDC)
+# ---------------------------------------------------------------------------
+# Aktiviert sich automatisch, sobald OIDC_CLIENT_ID gesetzt ist. Die Werte
+# werden aus der lokalen Datei "superset.env" geladen (nicht im Repo enthalten,
+# siehe superset.env.example). Ohne diese Variablen bleibt der normale
+# Benutzer-/Passwort-Login aktiv.
+#
+# Benoetigt:  OIDC_CLIENT_ID, OIDC_CLIENT_SECRET, OIDC_DISCOVERY_URL
+# Redirect-/Callback-URL im Provider eintragen:
+#     http(s)://<host>:8088/oauth-authorized/oidc
+# ---------------------------------------------------------------------------
+try:
+    from dotenv import load_dotenv
+
+    load_dotenv(os.path.join(BASE_DIR, "superset.env"))
+except Exception:  # dotenv optional; ohne Datei einfach ueberspringen
+    pass
+
+OIDC_CLIENT_ID = os.environ.get("OIDC_CLIENT_ID")
+
+if OIDC_CLIENT_ID:
+    from flask_appbuilder.security.manager import AUTH_OAUTH
+    from flask_appbuilder.security.sqla.manager import SecurityManager
+
+    AUTH_TYPE = AUTH_OAUTH
+
+    # Neue SSO-Nutzer automatisch anlegen ...
+    AUTH_USER_REGISTRATION = True
+    # ... mit dieser Standardrolle, falls kein Rollen-Mapping greift.
+    AUTH_USER_REGISTRATION_ROLE = os.environ.get("OIDC_DEFAULT_ROLE", "Gamma")
+
+    OAUTH_PROVIDERS = [
+        {
+            "name": "oidc",
+            "icon": "fa-key",
+            "token_key": "access_token",
+            "remote_app": {
+                "client_id": OIDC_CLIENT_ID,
+                "client_secret": os.environ.get("OIDC_CLIENT_SECRET"),
+                # Discovery-URL (.well-known/openid-configuration) -> Endpunkte
+                # werden automatisch ermittelt.
+                "server_metadata_url": os.environ.get("OIDC_DISCOVERY_URL"),
+                "client_kwargs": {
+                    "scope": os.environ.get("OIDC_SCOPE", "openid email profile"),
+                },
+            },
+        }
+    ]
+
+    # IdP-Gruppen/-Rollen (Claim "roles"/"groups") auf Superset-Rollen abbilden.
+    AUTH_ROLES_SYNC_AT_LOGIN = True
+    AUTH_ROLES_MAPPING = {
+        os.environ.get("OIDC_ADMIN_GROUP", "superset_admins"): ["Admin"],
+        os.environ.get("OIDC_USER_GROUP", "superset_users"): ["Gamma"],
+    }
+
+    class OIDCSecurityManager(SecurityManager):
+        """Liest die Nutzerdaten aus dem OIDC-userinfo-Endpunkt."""
+
+        def get_oauth_user_info(self, provider, response=None):
+            if provider != "oidc":
+                return {}
+            me = self.appbuilder.sm.oauth_remotes[provider].userinfo()
+
+            # Rollen/Gruppen aus verschiedenen ueblichen Claim-Positionen holen.
+            roles = me.get("roles") or me.get("groups") or []
+            realm_access = me.get("realm_access") or {}
+            if not roles and isinstance(realm_access, dict):
+                roles = realm_access.get("roles", [])
+
+            return {
+                "username": me.get("preferred_username") or me.get("email"),
+                "email": me.get("email"),
+                "first_name": me.get("given_name", ""),
+                "last_name": me.get("family_name", ""),
+                "role_keys": roles,
+            }
+
+    CUSTOM_SECURITY_MANAGER = OIDCSecurityManager
+
+    # Hinter Reverse-Proxy (HTTPS-Terminierung) aktivieren:
+    # ENABLE_PROXY_FIX = True
