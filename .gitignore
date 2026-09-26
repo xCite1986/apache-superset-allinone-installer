@@ -1,0 +1,17 @@
+# Python virtuelle Umgebung
+venv/
+__pycache__/
+*.pyc
+
+# Laufzeit-/Nutzerdaten (nicht veroeffentlichen)
+data/
+secret_key.txt
+language.txt
+
+# Dienst-Wrapper (wird beim Setup heruntergeladen)
+nssm.exe
+nssm.zip
+nssm_tmp/
+
+# Sonstiges
+*.log
